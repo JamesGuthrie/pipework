@@ -2,7 +2,7 @@
 # This code should (try to) follow Google's Shell Style Guide
 # (https://google-styleguide.googlecode.com/svn/trunk/shell.xml)
 set -e
-
+set -x
 case "$1" in
   --wait)
     WAIT=1
@@ -23,6 +23,11 @@ if [ "$2" = "-l" ]; then
   shift 2
 fi
 
+if [ "$2" = "-p" ]; then
+  OVS_PORT=$3
+  shift 2
+fi
+
 GUESTNAME=$2
 IPADDR=$3
 MACADDR=$4
@@ -40,8 +45,8 @@ esac
 
 [ "$IPADDR" ] || [ "$WAIT" ] || {
   echo "Syntax:"
-  echo "pipework <hostinterface> [-i containerinterface] [-l localinterfacename] <guest> <ipaddr>/<subnet>[@default_gateway] [macaddr][@vlan]"
-  echo "pipework <hostinterface> [-i containerinterface] [-l localinterfacename] <guest> dhcp [macaddr][@vlan]"
+  echo "pipework <hostinterface> [-p port] [-i containerinterface] [-l localinterfacename] <guest> <ipaddr>/<subnet>[@default_gateway] [macaddr][@vlan]"
+  echo "pipework <hostinterface> [-p port] [-i containerinterface] [-l localinterfacename] <guest> dhcp [macaddr][@vlan]"
   echo "pipework --wait [-i containerinterface]"
   exit 1
 }
@@ -98,6 +103,10 @@ if [ -z "$WAIT" ]; then
       *) die 1 "I do not know how to setup interface $IFNAME." ;;
     esac
   fi
+fi
+
+if ([ -n "$OVS_PORT" ] && [ "$BRTYPE" != "openvswitch" ]); then
+    die 1 "Desired port number can only be specified for ovs bridges"
 fi
 
 # Set the default container interface name to eth1 if not already set
@@ -259,7 +268,11 @@ MTU=$(ip link show "$IFNAME" | awk '{print $5}')
       ;;
     openvswitch)
       if ! ovs-vsctl list-ports "$IFNAME" | grep -q "$LOCAL_IFNAME"; then
-        ovs-vsctl add-port "$IFNAME" "$LOCAL_IFNAME" ${VLAN:+tag="$VLAN"}
+        if [ -n "$OVS_PORT" ]; then
+          ovs-vsctl add-port "$IFNAME" "$LOCAL_IFNAME" ${VLAN:+tag="$VLAN"} -- set Interface "$LOCAL_IFNAME" ofport_request="$OVS_PORT"
+        else
+          ovs-vsctl add-port "$IFNAME" "$LOCAL_IFNAME" ${VLAN:+tag="$VLAN"}
+        fi
       fi
       ;;
   esac

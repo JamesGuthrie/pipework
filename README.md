@@ -369,6 +369,15 @@ If you want to attach a container to the Open vSwitch bridge, no problem.
 
 If the ovs bridge doesn't exist, it will be automatically created
 
+<a name="openvswitch request port"/>
+### Requesting Open vSwitch Port
+When adding a port to an Open vSwitch interface the desired port number can be
+specified with the -p flag.
+
+    pipework ovsbr0 -p 1 $(docker run -d mysql /usr/sbin/mysqld_safe) 192.168.1.2/24
+
+This will attach the container to the ovs switch port 1.
+
 <a name="infiniband"/>
 ### Support Infiniband IPoIB
 
